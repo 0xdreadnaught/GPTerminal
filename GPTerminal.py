@@ -90,6 +90,16 @@ while ticker <= 9999:
     except:
         pass
 
+    #check for response limit limit
+    try:
+        GPT_response = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//div[contains(text(),'The message you submitted was too long, please reload the conversation and submit something shorter.')]")))
+        print("LIMIT: " + text)
+        print("INFO: Identify why the results weren't truncated into multiple chunks.")
+        input("Press Enter to close")
+        exit()
+    except:
+        pass
+
     #check for GPT command
     tick = f"{ticker:04d}"
     try:
