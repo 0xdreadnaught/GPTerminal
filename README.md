@@ -10,7 +10,7 @@ To install GPTerminal, follow these steps:
 2. Install the dependencies using `pip install -r requirements.txt`.
 3. Run `python GPTerminal.py` to start the application.
 4. Authenticate with chatGPT.
-%. Press Enter at the prompt to start the runtime loop.
+5. Press Enter at the prompt to start the runtime loop.
 
 ## Usage
 
