@@ -3,6 +3,7 @@ import random
 import re
 import time
 import psutil
+import pyttsx3
 import os
 import undetected_chromedriver as uc
 import subprocess
@@ -102,28 +103,14 @@ def get_command(driver, input_field):
         time.sleep(2)
         driver.implicitly_wait(3)
 
-        # Check for "Too many requests in 1 hour. Try again later." message
+        #Check for GETTASK-xxxx: <task status>
         try:
-            element = driver.find_element(By.XPATH, "//div[contains(text(),'Too many requests in 1 hour. Try again later.')]")
+            element = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//p[contains(text(),'GPTTASK-" + str(tick) + "')]")))
             if element:
-                # Handle message size limit error
-                fancy_print("ERROR", "GPT rate limit hit!")
-                fancy_print("STATUS", "Press Enter to close GPTerminal.")
-                input()
-                exit()
-        except:
-            pass
-        
-
-        # Check for "The message you submitted was too long, please reload the conversation and submit something shorter." message
-        try:
-            element = driver.find_element(By.XPATH, "//div[contains(text(),'The message you submitted was too long, please reload the conversation and submit something shorter.')]")
-            if element:
-                # Handle message size limit error
-                fancy_print("ERROR", "Message size limit hit!")
-                fancy_print("STATUS", "Press Enter to close GPTerminal.")
-                input()
-                exit()
+                text = element.text
+                task_filter = "GPTTASK-" + str(tick) + ": Task complete."
+                if text.startswith(task_filter):
+                    fancy_print("GPTTASK", "GPTTASK-" + str(tick) + " complete.")
         except:
             pass
 
@@ -144,19 +131,10 @@ def get_command(driver, input_field):
                 else:
                     fancy_print("STATUS", "Skipping execution of GPTCMD-" + str(tick) + ".")
                     input_field.send_keys("WORLDUPDATE: GPTCMD-" + str(tick) + " was skipped by the user." + Keys.RETURN)
-                    
+
                 #increment ticker and loop
                 text = ""
                 ticker += 1
-        except:
-            pass
-
-        # Check for world update (bleep borp) message
-        try:
-            element = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//p[contains(text(),'bleep borp.')]")))
-            if element:
-                # Handle world update
-                pass       
         except:
             pass
 
@@ -168,37 +146,79 @@ def get_command(driver, input_field):
 
                 #base scenario loaded
                 if base_loaded == False:
-                    if "GPTWAIT: Base scenario loaded." in element.text:
+                    if "GPTWAIT: Initialization complete." in element.text:
                         fancy_print("STATUS", "Base scenario loaded. Waiting for tasking...")
                         #get first tasking form the user
                         fancy_print("GPTTASK", "Getting user input for first task...")
                         #get and send first task to GPT
                         first_task = ""
                         while first_task == "":
-                            first_task = input("Task: ")
+                            first_task = input("Enter task: ")
 
                         fancy_print("STATUS", "Sending world update for first task...")
                         input_field.send_keys("WORLDUPDATE: " + first_task + Keys.RETURN)
                         base_loaded = True
                     else:
                         pass
-                    pass       
-                else:
                     pass
-
+                else:
+                    if "GPTWAIT: Awaiting task." in element.text:
+                        fancy_print("STATUS", "GPT is waiting for a new task...")
         except:
             pass
-        
-        
+
+        # Check for "Too many requests in 1 hour. Try again later." message
+        try:
+            element = driver.find_element(By.XPATH, "//div[contains(text(),'Too many requests in 1 hour. Try again later.')]")
+            if element:
+                # Handle message size limit error
+                fancy_print("ERROR", "GPT rate limit hit!")
+                fancy_print("STATUS", "Press Enter to close GPTerminal.")
+                input()
+                exit()
+        except:
+            pass
+
+        # Check for "The message you submitted was too long, please reload the conversation and submit something shorter." message
+        try:
+            element = driver.find_element(By.XPATH, "//div[contains(text(),'The message you submitted was too long, please reload the conversation and submit something shorter.')]")
+            if element:
+                # Handle message size limit error
+                fancy_print("ERROR", "Message size limit hit!")
+                fancy_print("STATUS", "Press Enter to close GPTerminal.")
+                input()
+                exit()
+        except:
+            pass
+
+        # Check for world update (bleep borp) message
+        try:
+            element = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//p[contains(text(),'bleep borp.')]")))
+            if element:
+                # Handle world update
+                pass
+        except:
+            pass
 
     fancy_print("ERROR", "Reached maximum number of tasks. Terminating script.")
     exit()
+
+def supplemental_wait(driver, id):
+    while True:
+        time.sleep(2)
+        driver.implicitly_wait(5)
+        element = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//p[contains(text(),'GPT: Loaded supplemental payload " + str(id) + ".')]")))
+        if element:
+            fancy_print("STATUS", "Supplimental data payload " + str(id) + " loaded.")
+            break
+        else:
+             fancy_print("STATUS", "Still waiting for confirmation of supplemental payload " + str(id) + " ...")
 
 def execute_command(driver, input_field, command, display_message):
     fancy_print("GPTTASK", display_message)
     process = subprocess.Popen(["powershell", str(command)], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, error = process.communicate()
-    if output is not None or error is not None:        
+    if output.strip() is not None or error.strip() is not None:
         fancy_print("GPTIN", "GPTIN: " + output.decode('utf-8'))
         input_field.send_keys("GPTIN: ")
         actions = ActionChains(driver)
@@ -244,12 +264,21 @@ def initialize_driver(target_url):
 def login(driver):
     input("Press {ENTER} when logged in.")
     input_field = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//textarea")))
-    input_field.send_keys("you will respond like a systems admin typing into a powershell terminal. I will present you with tasks and you will return the raw commands. for example: if I say 'find the current directory' you respond with something like 'GPTCMD-0001: pwd'. and if I asked you after that for the current ip address, you would respond with 'GPTCMD-0002: ip a'. if I supply you with error output from the terminal, continue the command sequence in order to resolve the problem. any terminal responses from your commands will be returned by me with GPTIN-xxxx: <text>, where xxxx corresponds to the matching GPTCMD ID. If the command you supplied generated no visual results, I will send you a message like 'GPTIN: NO RESULTS SHOWN.'. If you understand this, simply respond with 'GPTWAIT: Base scenario loaded.'." + Keys.RETURN)
+    input_field.send_keys("you will respond like a systems admin typing into a powershell terminal. I will present you with tasks and you will return the raw commands. for example: if I say 'find the current directory' you respond with something like 'GPTCMD-0001: pwd'. and if I asked you after that for the current ip address, you would respond with 'GPTCMD-0002: ip a'. if I supply you with error output from the terminal, continue the command sequence in order to resolve the problem. any terminal responses from your commands will be returned by me with GPTIN-xxxx: <text>, where xxxx corresponds to the matching GPTCMD ID. If the command you supplied generated no visual results, I will send you a message like 'GPTIN: NO RESULTS SHOWN.'. remember only one command at a time, wait until your first command has reported back before continuing on. Respond with 'GPT: Base scenario loaded.' if you understand." + Keys.RETURN)
     return input_field
 
 def main():
     print("[STATUS] Starting GPTerminal ...")
-    print("[STATUS] Initializing color test ...")
+    engine = pyttsx3.init()
+    rate = engine.getProperty('rate')
+    engine.setProperty('rate', rate-50)
+    engine.say("GP Terminal coming online.")
+    engine.runAndWait()
+    # List all available voices
+    voices = engine.getProperty('voices')
+    for voice in voices:
+        print(voice.id)
+        print("[STATUS] Initializing color test ...")
     #perform color test.
     for row in range(-1,42):
         print_six(row, fg)
@@ -262,12 +291,37 @@ def main():
     #identify what kind of terminal started this script
     ppid = os.getppid()
     fancy_print("STATUS", "Current terminal: " + psutil.Process(ppid).name())
-    driver = initialize_driver("https://chat.openai.com/chat")
+    #use token if site is busy
+    driver = initialize_driver("https://chat.openai.com/auth/login?token=ed0015df12a1b403c02b8c9980803ace76efddbd142435646b720535f85dc9c0")
+    #driver = initialize_driver("https://chat.openai.com/chat")
     input_field = login(driver)
+
+    # Check if base scenario was accepted
+    try:
+        element = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//p[contains(text(),'GPT: Base scenario loaded.')]")))
+        if element:
+            text = element.text
+            fancy_print("STATUS", "Base scenario loaded.")
+            time.sleep(5)
+            #call supplimental scenarios here
+            input_field.send_keys("WORLDUPDATE: the system administrator always responds to WORLDUPDATE messages with 'GPT: Loaded supplemental payload 1.' if they understand." + Keys.RETURN)
+            supplemental_wait(driver, 1)
+            input_field.send_keys("WORLDUPDATE: When given a new task, the system admin responds with a message like 'GPTTASK-0001: Starting task.' and then proceeds with the first GPTCMD. You do NOT send GPTIN messages. Respond with 'GPT: Loaded supplemental payload 2.' if you understand." + Keys.RETURN)
+            supplemental_wait(driver, 2)
+            input_field.send_keys("WORLDUPDATE: Finished loading supplimental scenario data. Respond with 'GPT: Loaded supplemental payload 3' if you understand."+ Keys.RETURN)
+            supplemental_wait(driver, 3)
+            input_field.send_keys("WORLDUPDATE: Supplemental data complete. We are about to begind operations. Please respond with 'GPTWAIT: Initialization complete.' if you understand and are ready to proceed." + Keys.RETURN)
+        else:
+            pass
+
+    except:
+        fancy_print("ERROR", "Base scenario failed to load within 10 seconds. Closing GPTerminal...")
+        input("Press Enter to close.")
+        exit()
     while True:
         get_command(driver, input_field)
         time.sleep(2)
-        
+
 
 if __name__ == "__main__":
     main()
