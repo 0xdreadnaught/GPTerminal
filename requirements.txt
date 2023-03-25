@@ -4,3 +4,12 @@ time
 undetected_chromedriver
 subprocess
 selenium
+aiohttp
+async-timeout
+attrs
+chardet
+colorama
+multidict
+psutil
+pyttsx3
+yarl
