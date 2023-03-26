@@ -1,6 +1,7 @@
 # GPTerminal
 
 GPTerminal is a software that interfaces between chatGPT and a live system terminal, enabling AI control of a target system.
+*This does not use the API
 
 ![Demo](https://github.com/0xdreadnaught/GPTerminal/blob/main/GPTerminal-demo.png)
 
